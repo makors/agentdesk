@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""agentdesk: run an AI agent on this Mac concurrently with you, without touching your focus.
+
+It gives the agent (Codex computer-use, or any harness) an ISOLATED, HIDDEN workspace:
+  * a hidden virtual display (reused from the running Monitor if present),
+  * a SEPARATE process instance of the target app  (never shares key-window state with your copy),
+  * every window parked on the hidden display,
+  * a background relocator that pulls any dialog the agent opens off your screen automatically.
+It sends no keyboard/pointer events and never activates an app. All actuation is exact-window
+Accessibility via `axact`, so Codex can drive by (pid, window_id) with the cursor and focus left alone.
+
+Commands:
+  agentdesk up                         start the relocator daemon (and confirm hidden display)
+  agentdesk launch APP [--file PATH]   launch an isolated hidden instance; park it; print {pid, windows}
+  agentdesk register PID               add an already-running pid to the relocator's watch set
+  agentdesk park PID                   move all of PID's windows onto the hidden display
+  agentdesk act ...                    passthrough to axact (windows|tree|find|set|insert|press|menu|move|focused)
+  agentdesk status                     show daemon, hidden display, watched pids
+  agentdesk down                       stop the daemon (agent instances keep running)
+"""
+import json,os,pathlib,subprocess,sys,time,signal
+HERE=pathlib.Path(__file__).resolve().parent;ROOT=HERE.parent/'runtime';ROOT.mkdir(exist_ok=True)
+AXACT=HERE/'axact';DAEMON=HERE/'agentdesk-daemon'
+REG=ROOT/'agents.json';PIDF=ROOT/'daemon.pid';RELOG=ROOT/'relocations.jsonl'
+DISP=HERE/'hidden-display';DPID=ROOT/'display.pid';DSTATE=ROOT/'display.json'
+def displays():
+    import ctypes
+    cg=ctypes.CDLL('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics')
+    n=ctypes.c_uint32();ids=(ctypes.c_uint32*16)();cg.CGGetActiveDisplayList(16,ids,ctypes.byref(n))
+    class R(ctypes.Structure):_fields_=[('x',ctypes.c_double),('y',ctypes.c_double),('w',ctypes.c_double),('h',ctypes.c_double)]
+    cg.CGDisplayBounds.restype=R;main=cg.CGMainDisplayID()
+    out=[]
+    for i in range(n.value):
+        b=cg.CGDisplayBounds(ids[i]);out.append({'id':ids[i],'bounds':[b.x,b.y,b.w,b.h],'main':ids[i]==main})
+    return out
+def hidden_rect():
+    for d in displays():
+        if not d['main']:return d['bounds']
+    return None
+def load_reg():
+    try:return json.loads(REG.read_text())
+    except Exception:return {'pids':[],'hidden':hidden_rect() or [1512,0,1920,1200],'margin':90}
+def save_reg(r):REG.write_text(json.dumps(r))
+def display_alive():
+    try:pid=int(DPID.read_text());os.kill(pid,0);return pid
+    except Exception:return None
+def ensure_display():
+    if hidden_rect():return {'hidden_display':'already present','bounds':hidden_rect()}
+    p=subprocess.Popen([str(DISP),str(DSTATE),'corner'],stdout=open(ROOT/'display.log','a'),stderr=subprocess.STDOUT,start_new_session=True)
+    DPID.write_text(str(p.pid))
+    for _ in range(40):
+        if hidden_rect():break
+        if p.poll() is not None:raise RuntimeError('hidden-display exited')
+        time.sleep(0.2)
+    return {'hidden_display':'started','pid':p.pid,'bounds':hidden_rect()}
+def daemon_alive():
+    try:pid=int(PIDF.read_text());os.kill(pid,0);return pid
+    except Exception:return None
+def axact(*a):
+    r=subprocess.run([str(AXACT),*map(str,a)],capture_output=True,text=True,timeout=30);return r.returncode,r.stdout.strip(),r.stderr.strip()
+def wins(pid):
+    rc,o,e=axact('windows',pid)
+    try:return json.loads(o)
+    except Exception:return []
+def up():
+    disp=ensure_display();h=hidden_rect()
+    if not h:
+        print("Could not create a hidden display.",file=sys.stderr);sys.exit(1)
+    r=load_reg();r['hidden']=h;save_reg(r)
+    if daemon_alive():print(json.dumps({'daemon':'already running','pid':daemon_alive(),'hidden':h}));return
+    p=subprocess.Popen([str(DAEMON),str(ROOT)],stdout=open(ROOT/'daemon.log','a'),stderr=subprocess.STDOUT,start_new_session=True)
+    PIDF.write_text(str(p.pid));time.sleep(0.5)
+    print(json.dumps({'daemon':'started','pid':p.pid,'hidden':h,'watching':r['pids']}))
+def park(pid):
+    h=load_reg()['hidden'];margin=90;moved=[]
+    for w in wins(pid):
+        rc,o,e=axact('move',pid,w['wid'],int(h[0]+margin),int(h[1]+margin));moved.append({'wid':w['wid'],'ok':'"ok":true' in o})
+    return moved
+def register(pid):
+    r=load_reg()
+    if pid not in r['pids']:r['pids'].append(pid)
+    save_reg(r);return r['pids']
+def launch(app,file=None):
+    before=set(subprocess.run(['pgrep','-x',app],capture_output=True,text=True).stdout.split())
+    cmd=['open','-n','-gj','-a',app]+(['--args'] if False else [])
+    if file:cmd=['open','-n','-gj','-a',app,file]
+    subprocess.run(cmd);
+    pid=None
+    for _ in range(40):
+        now=[p for p in subprocess.run(['pgrep','-x',app],capture_output=True,text=True).stdout.split() if p not in before]
+        if now:pid=int(now[0]);
+        if pid and wins(pid):break
+        time.sleep(0.2)
+    if not pid:print(json.dumps({'error':'no instance launched'}));sys.exit(1)
+    register(pid)
+    if not daemon_alive():up()
+    time.sleep(0.3);parked=park(pid);time.sleep(0.3)
+    print(json.dumps({'pid':pid,'app':app,'parked':parked,'windows':wins(pid),'note':'drive this pid/window with Codex or `agentdesk act`; dialogs auto-relocate'},indent=1))
+def status():
+    r=load_reg();print(json.dumps({'daemon_pid':daemon_alive(),'display_pid':display_alive(),'hidden_display':hidden_rect(),'watching_pids':r['pids'],'relocations':sum(1 for _ in open(RELOG)) if RELOG.exists() else 0},indent=1))
+def down():
+    out={}
+    pid=daemon_alive()
+    if pid:os.kill(pid,signal.SIGTERM);out['daemon']='stopped'
+    else:out['daemon']='not running'
+    dp=display_alive()
+    if dp:os.kill(dp,signal.SIGTERM);out['hidden_display']='stopped'
+    else:out['hidden_display']='not running (or external)'
+    time.sleep(1);print(json.dumps(out))
+def main():
+    a=sys.argv[1:]
+    if not a:print(__doc__);return
+    c=a[0]
+    if c=='up':up()
+    elif c=='down':down()
+    elif c=='status':status()
+    elif c=='launch':
+        app=a[1];file=None
+        if '--file' in a:file=a[a.index('--file')+1]
+        launch(app,file)
+    elif c=='register':print(json.dumps({'watching':register(int(a[1]))}))
+    elif c=='park':print(json.dumps({'parked':park(int(a[1]))}))
+    elif c=='act':print(axact(*a[1:])[1])
+    else:print(__doc__)
+if __name__=='__main__':main()
