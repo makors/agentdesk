@@ -63,3 +63,17 @@ Cycled File>Open, Format>Font>Show Fonts, Edit>Find, rapid repeats on the hidden
 - **Canvas/Metal/games:** AX-poor; need pixel clicks that require brief activation. Out of scope.
 - **OS/TCC permission dialogs:** rendered by the system on the main display; cannot be hidden or relocated. Occur once per app/permission.
 - **Deployment:** the tools currently inherit the terminal's Accessibility grant. A shipped product must be one signed binary granted Accessibility once.
+
+## E11 — Real heavy app: Adobe Illustrator, driven by a subagent through agentdesk
+A general-purpose subagent used agentdesk to operate a fresh Illustrator instance (parked on the
+corner hidden display) while the user typed in another app. It produced a simple arrow graphic
+(`docs/evidence/illustrator-arrow.png`).
+- Path used: Illustrator's own script engine via AppleEvents `do javascript` (headless). It made a
+  new document, drew the arrow, and exported a PNG. No GUI dialog appeared, so nothing needed moving.
+- Oracle during the run: the agent never activated Illustrator, never moved the pointer, and put no
+  Illustrator window on the main display. The few front/focus changes were the user's own activity in
+  their app; a system notification caused one. `mouse_entered_hidden_display: 0`.
+- Honest scope: this proves agentdesk keeps a real, heavy app isolated while it is driven, but the
+  script path does not exercise the dialog mover. Dialog relocation (~1-2 ms) is proven separately on
+  TextEdit and Preview (E7, E9, E10). Illustrator's canvas is not Accessibility-addressable, so
+  freehand drawing needs the script engine, not background GUI clicks.
