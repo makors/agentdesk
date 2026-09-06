@@ -19,10 +19,17 @@ Commands:
   agentdesk down                       stop the daemon (agent instances keep running)
 """
 import json,os,pathlib,subprocess,sys,time,signal
-HERE=pathlib.Path(__file__).resolve().parent;ROOT=HERE.parent/'runtime';ROOT.mkdir(exist_ok=True)
-AXACT=HERE/'axact';DAEMON=HERE/'agentdesk-daemon'
+HERE=pathlib.Path(__file__).resolve().parent
+HOME=pathlib.Path(os.environ.get('AGENTDESK_HOME', str(pathlib.Path.home()/'.agentdesk'))).expanduser()
+ROOT=HOME/'runtime';ROOT.mkdir(parents=True,exist_ok=True)
+def _tool(name):
+    # helper binaries live beside this script (source/dev or brew libexec); fall back to ~/.agentdesk/bin
+    for c in (HERE/name, HOME/'bin'/name):
+        if c.exists():return c
+    return HERE/name
+AXACT=_tool('axact');DAEMON=_tool('agentdesk-daemon')
 REG=ROOT/'agents.json';PIDF=ROOT/'daemon.pid';RELOG=ROOT/'relocations.jsonl'
-DISP=HERE/'hidden-display';DPID=ROOT/'display.pid';DSTATE=ROOT/'display.json'
+DISP=_tool('hidden-display');DPID=ROOT/'display.pid';DSTATE=ROOT/'display.json'
 def displays():
     import ctypes
     cg=ctypes.CDLL('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics')
@@ -182,6 +189,13 @@ def main():
     elif c=='register':print(json.dumps({'watching':register(int(a[1]))}))
     elif c=='park':print(json.dumps({'parked':park(int(a[1]))}))
     elif c=='close':print(json.dumps(close_desk(int(a[1]))))
+    elif c=='mcp':
+        srv=HERE/'agentdesk_mcp.py'
+        if not srv.exists():srv=HOME/'mcp'/'agentdesk_mcp.py'
+        import shutil
+        py=shutil.which('python3') or '/usr/bin/python3'
+        print(f"MCP server: {srv}\n\nPaste into ~/.codex/config.toml (ChatGPT/Codex app):\n")
+        print(f'[mcp_servers.agentdesk]\ncommand = "{py}"\nargs = ["{srv}"]\nstartup_timeout_sec = 30')
     elif c=='act':print(axact(*a[1:])[1])
     else:print(__doc__)
 if __name__=='__main__':main()

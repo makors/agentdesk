@@ -5,7 +5,13 @@ It does NOT do computer use; it prepares an isolated hidden workspace and return
 process id + window id for the host's own background computer use to drive."""
 import sys, json, subprocess, pathlib
 HERE = pathlib.Path(__file__).resolve().parent
-AGENTDESK = HERE.parent / 'bin' / 'agentdesk'
+def _find_agentdesk():
+    import os
+    for c in (HERE/'agentdesk', HERE.parent/'bin'/'agentdesk', HERE.parent/'cli'/'agentdesk',
+              pathlib.Path.home()/'.agentdesk'/'bin'/'agentdesk'):
+        if c.exists():return c
+    return 'agentdesk'  # rely on PATH
+AGENTDESK = _find_agentdesk()
 def cli(*args, timeout=90):
     try:
         r = subprocess.run(['python3', str(AGENTDESK), *args], capture_output=True, text=True, timeout=timeout)
