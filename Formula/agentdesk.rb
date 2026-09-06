@@ -2,7 +2,7 @@ class Agentdesk < Formula
   desc "Run an AI agent on your Mac at the same time as you, on a hidden desk"
   homepage "https://github.com/makors/agentdesk"
   url "https://github.com/makors/agentdesk/archive/refs/tags/v0.1.3.tar.gz"
-  sha256 "2e79a616403aeb2a98fd88706a1053acaa8c3fe51d55bff5064ac7a5ef5b6b09"
+  sha256 "08d48de06a5ba173d09163f358469d29642f99916abd6b7d4aa438cc8a313e6f"
   license "MIT"
 
   depends_on :macos
