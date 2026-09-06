@@ -1,12 +1,20 @@
 {
   "name": "agentdesk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Open an app on a hidden desk and drive it in the background without stealing the user's focus, pointer, or screen. Use desk_open(app) to get an isolated pid + window_id to drive with computer use, then desk_close when done.",
-  "author": { "name": "makors" },
+  "author": {
+    "name": "makors"
+  },
   "homepage": "https://github.com/makors/agentdesk",
   "repository": "https://github.com/makors/agentdesk",
   "license": "MIT",
-  "keywords": ["macos", "focus", "hidden-display", "background", "computer-use"],
+  "keywords": [
+    "macos",
+    "focus",
+    "hidden-display",
+    "background",
+    "computer-use"
+  ],
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "agentdesk",
@@ -14,9 +22,12 @@
     "longDescription": "agentdesk opens an app on a hidden display in the corner of your screen and hands the agent its process id and window id to drive in the background. Your focus, pointer, and screen stay yours. Any dialog the agent opens is moved off your screen automatically. Tools: desk_open, desk_close, desk_status.",
     "developerName": "makors",
     "category": "Productivity",
-    "capabilities": ["Interactive"],
+    "capabilities": [
+      "Interactive"
+    ],
     "brandColor": "#202838",
     "composerIcon": "./assets/logo.png",
     "logo": "./assets/logo.png"
-  }
+  },
+  "skills": "./skills/"
 }
