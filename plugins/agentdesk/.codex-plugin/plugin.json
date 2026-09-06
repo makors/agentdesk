@@ -1,6 +1,6 @@
 {
   "name": "agentdesk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Open an app on a hidden desk and drive it in the background without stealing the user's focus, pointer, or screen. Use desk_open(app) to get an isolated pid + window_id to drive with computer use, then desk_close when done.",
   "author": {
     "name": "makors"

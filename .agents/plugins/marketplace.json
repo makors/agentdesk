@@ -9,7 +9,7 @@
       "name": "agentdesk",
       "displayName": "agentdesk",
       "source": "./plugins/agentdesk",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "description": "Open an app on a hidden desk so the agent works without touching your focus, pointer, or screen.",
       "author": {
         "name": "makors"

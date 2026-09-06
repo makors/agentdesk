@@ -1,5 +1,5 @@
 ---
-name: desktop-on-hidden-desk
+name: agentdesk
 description: Run any macOS desktop app on a hidden desk so it never steals the user's screen, focus, or pointer. Load this before driving a Mac desktop app with computer use — Illustrator, Photoshop, Preview, Keynote, Numbers, Finder, or any app — including whenever the user says "use <app> to ..." or asks you to make something in a desktop app.
 ---
 
