@@ -1,12 +1,13 @@
-<svg width="560" height="200" viewBox="0 0 560 200" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="agentdesk">
+<svg width="560" height="180" viewBox="0 0 560 180" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="agentdesk">
   <defs>
-    <linearGradient id="bg2" x1="0" y1="0" x2="150" y2="150" gradientUnits="userSpaceOnUse"><stop stop-color="#1b1f2a"/><stop offset="1" stop-color="#0e1017"/></linearGradient>
-    <linearGradient id="ac2" x1="70" y1="40" x2="120" y2="120" gradientUnits="userSpaceOnUse"><stop stop-color="#5ac8fa"/><stop offset="1" stop-color="#4a7dff"/></linearGradient>
+    <linearGradient id="soft" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#292B40"/><stop offset="0.52" stop-color="#202838"/><stop offset="1" stop-color="#141D27"/>
+    </linearGradient>
   </defs>
-  <rect x="20" y="30" width="140" height="140" rx="34" fill="url(#bg2)"/>
-  <rect x="95" y="98" width="54" height="40" rx="7" fill="none" stroke="#2b3243" stroke-width="2.5" stroke-dasharray="5 6"/>
-  <g transform="translate(112 104) scale(0.7)" opacity="0.9"><path d="M0 0 L0 40 L11 30 L18 46 L24 43 L17 27 L31 27 Z" fill="none" stroke="url(#ac2)" stroke-width="4" stroke-linejoin="round"/></g>
-  <g transform="translate(56 58) scale(1.25)"><path d="M0 0 L0 40 L11 30 L18 46 L24 43 L17 27 L31 27 Z" fill="#f4f6fb" stroke="#0e1017" stroke-width="2.4" stroke-linejoin="round"/></g>
-  <text x="196" y="104" font-family="-apple-system, Helvetica, Arial, sans-serif" font-size="52" font-weight="700" fill="#f4f6fb">agentdesk</text>
-  <text x="198" y="136" font-family="-apple-system, Helvetica, Arial, sans-serif" font-size="19" font-weight="400" fill="#8a93a6">a second desk on your Mac, out of your way</text>
+  <g transform="translate(20,20) scale(0.2734)">
+    <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#soft)"/>
+    <path d="M 177 151 Q 177 140 186 147 L 337 274 Q 346 282 334 284 L 276 290 L 306 351 Q 309 358 302 361 L 277 373 Q 270 376 267 369 L 237 307 L 190 349 Q 177 360 177 344 Z" fill="#FCFCFF"/>
+  </g>
+  <text x="176" y="88" font-family="-apple-system, Helvetica, Arial, sans-serif" font-size="50" font-weight="700" fill="#1b1f2a">agentdesk</text>
+  <text x="178" y="120" font-family="-apple-system, Helvetica, Arial, sans-serif" font-size="18" font-weight="400" fill="#6b7280">a second desk on your Mac, out of your way</text>
 </svg>

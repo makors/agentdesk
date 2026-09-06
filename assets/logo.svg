@@ -1,21 +1,11 @@
-<svg width="240" height="240" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="agentdesk logo">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="240" y2="240" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#1b1f2a"/><stop offset="1" stop-color="#0e1017"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="120" y1="70" x2="190" y2="180" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#5ac8fa"/><stop offset="1" stop-color="#4a7dff"/>
+    <linearGradient id="soft" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#292B40"/>
+      <stop offset="0.52" stop-color="#202838"/>
+      <stop offset="1" stop-color="#141D27"/>
     </linearGradient>
   </defs>
-  <rect x="8" y="8" width="224" height="224" rx="52" fill="url(#bg)"/>
-  <!-- hidden second surface, cornered off the main one -->
-  <rect x="120" y="120" width="86" height="60" rx="10" fill="none" stroke="#2b3243" stroke-width="3" stroke-dasharray="6 7"/>
-  <!-- agent cursor (ghost, on the hidden surface) -->
-  <g transform="translate(150 132) scale(1.05)" opacity="0.9">
-    <path d="M0 0 L0 40 L11 30 L18 46 L24 43 L17 27 L31 27 Z" fill="none" stroke="url(#accent)" stroke-width="3.5" stroke-linejoin="round"/>
-  </g>
-  <!-- your cursor (solid, on the main surface) -->
-  <g transform="translate(64 54) scale(1.9)">
-    <path d="M0 0 L0 40 L11 30 L18 46 L24 43 L17 27 L31 27 Z" fill="#f4f6fb" stroke="#0e1017" stroke-width="2.2" stroke-linejoin="round"/>
-  </g>
+  <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#soft)"/>
+  <path d="M 177 151 Q 177 140 186 147 L 337 274 Q 346 282 334 284 L 276 290 L 306 351 Q 309 358 302 361 L 277 373 Q 270 376 267 369 L 237 307 L 190 349 Q 177 360 177 344 Z" fill="#FCFCFF"/>
 </svg>
