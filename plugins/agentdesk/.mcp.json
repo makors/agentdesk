@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "agentdesk": {
+      "command": "/usr/bin/python3",
+      "args": ["/opt/homebrew/opt/agentdesk/libexec/agentdesk_mcp.py"],
+      "enabled": true,
+      "startup_timeout_sec": 30
+    }
+  }
+}

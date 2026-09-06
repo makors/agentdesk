@@ -59,6 +59,20 @@ agentdesk mcp
 Paste it into `~/.codex/config.toml`, then restart the app. The agent gets three
 tools: `desk_open`, `desk_close`, `desk_status`.
 
+## Install as a Codex plugin (mentionable)
+
+Make agentdesk show up in the ChatGPT / Codex app with its own icon:
+
+```
+brew install agentdesk    # provides the MCP server
+codex plugin marketplace add makors/agentdesk
+codex plugin add agentdesk@makors
+```
+
+Restart the app. The plugin appears with the three tools `desk_open`, `desk_close`,
+`desk_status`. (The bundled server path assumes Apple Silicon Homebrew at
+`/opt/homebrew`; on Intel, edit `plugins/agentdesk/.mcp.json` to `/usr/local`.)
+
 ## Use
 
 ```
