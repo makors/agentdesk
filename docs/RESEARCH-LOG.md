@@ -93,3 +93,18 @@ Verified (fresh Illustrator, user idle, oracle at 60 Hz):
 - File>Open... (the exact dialog from the user's screenshot, 866x475) relocated from [323,130] on the main screen to [1602,1072] on the hidden display in **6.9 ms**; front/focus/pointer changes all zero.
 
 Remaining limit: a faint single- to low-double-digit-ms flash can still occur on heavy-app launch and on the first dialog. Far below the old 567 ms, but not literally zero. `shared_instance` apps are only safe when the user is not working in that same app; desk_open returns a warning saying so.
+
+## E13 — Canvas apps DO work on the hidden desk (Photoshop), and a desk_close safety fix
+Placing Photoshop's canvas window (with a document open) on the hidden desk and letting Codex
+drive it: real brush strokes landed, and the oracle showed NO Photoshop window on the main
+display, the pointer never entered the hidden desk (paint used background window-local events,
+not cursor drags), the keyboard stayed with the user, and Photoshop was frontmost for only
+~2.4s — invisible, because its window was off-screen. So a canvas app's brief required
+activation becomes invisible when its window lives on the hidden desk. Earlier `noWindowsAvailable`
+was a no-open-document confound, not an off-screen one (a parked window stays onscreen=true).
+
+Fix: `desk_close` used to SIGTERM the pid unconditionally, which quit an ADOPTED single-instance
+app (the user's own Photoshop/Illustrator, with unsaved work). Now agentdesk records ownership at
+desk_open (separate_process = agent-launched = ours; shared_instance = adopted = the user's), and
+desk_close only terminates an instance we launched. For an adopted instance it un-watches, restores
+each window to its pre-park position, and never quits. Unknown ownership defaults to never-quit.

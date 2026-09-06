@@ -46,7 +46,7 @@ def hidden_rect():
     return None
 def load_reg():
     try:return json.loads(REG.read_text())
-    except Exception:return {'pids':[],'hidden':hidden_rect() or [1512,0,1920,1200],'margin':90}
+    except Exception:return {'pids':[],'hidden':hidden_rect() or [1512,0,1920,1200],'margin':90,'desks':{}}
 def save_reg(r):REG.write_text(json.dumps(r))
 def display_alive():
     try:pid=int(DPID.read_text());os.kill(pid,0);return pid
@@ -101,13 +101,23 @@ def ensure_up():
 def up():
     print(json.dumps(ensure_up()))
 def park(pid):
-    h=load_reg()['hidden'];margin=90;moved=[]
+    r=load_reg();h=r['hidden'];margin=90;moved=[]
+    desk=r.setdefault('desks',{}).setdefault(str(pid),{});orig=desk.setdefault('orig',{})
     for w in wins(pid):
+        b=w['bounds']
+        # record the true original position the first time we see this window still on the main display
+        if str(w['wid']) not in orig and b[0]<h[0]:
+            orig[str(w['wid'])]=[int(b[0]),int(b[1])]
         rc,o,e=axact('move',pid,w['wid'],int(h[0]+margin),int(h[1]+margin));moved.append({'wid':w['wid'],'ok':'"ok":true' in o})
+    save_reg(r)
     return moved
-def register(pid):
+def register(pid, meta=None):
     r=load_reg()
     if pid not in r['pids']:r['pids'].append(pid)
+    r.setdefault('desks',{})
+    d=r['desks'].setdefault(str(pid),{})
+    if meta:d.update(meta)
+    d.setdefault('orig',{})
     save_reg(r);return r['pids']
 def launch(app,file=None):
     if not (daemon_alive() and hidden_rect()):ensure_up()
@@ -128,7 +138,7 @@ def launch(app,file=None):
         allp=pidof(app)
         if not allp:return print(json.dumps({'error':'app did not launch or was not found','app':app,'resolved':target,'open_error':launch_err}))or sys.exit(1)
         pid=allp[0][0];mode='shared_instance'
-    register(pid)  # register BEFORE windows render so the mover catches the app's own window too
+    register(pid, {'mode':mode,'owns_launch':(mode=='separate_process'),'app':app})  # remember who owns this instance
     # hide_park_unhide: keep a freshly-launched app hidden while its window/AX initializes,
     # park it onto the hidden display, then unhide it there — avoids a launch-time flash on the user's screen.
     hidden_launch = (mode=='separate_process')
@@ -158,12 +168,27 @@ def launch(app,file=None):
 def close_desk(pid):
     import signal as _sig
     r=load_reg()
-    if pid in r['pids']:r['pids'].remove(pid);save_reg(r)
-    quit_err=None
-    try:os.kill(pid,_sig.SIGTERM)
-    except ProcessLookupError:quit_err='already gone'
-    except Exception as e:quit_err=str(e)
-    return {'closed_pid':pid,'watching':load_reg()['pids'],'note':quit_err or 'sent SIGTERM'}
+    desk=r.get('desks',{}).get(str(pid),{})
+    owns=desk.get('owns_launch', False)  # unknown ownership -> never terminate (safe default)
+    if str(pid) not in r.get('desks',{}):
+        owns=False   # no record of launching it -> assume it is the user's; never terminate
+    orig=desk.get('orig',{})
+    # 1) un-watch so the relocator stops touching it
+    if pid in r['pids']:r['pids'].remove(pid)
+    r.get('desks',{}).pop(str(pid),None);save_reg(r)
+    # 2) restore each window to where it was before we parked it
+    restored=[]
+    for wid,xy in orig.items():
+        o=axact('move',str(pid),wid,int(xy[0]),int(xy[1]));restored.append({'wid':int(wid),'ok':'"ok":true' in o})
+    # 3) lifecycle: only quit an instance WE launched; never terminate the user's adopted app
+    action=None
+    if owns:
+        try:os.kill(pid,_sig.SIGTERM);action='quit agent-launched instance (SIGTERM, honors save prompts)'
+        except ProcessLookupError:action='already gone'
+        except Exception as e:action='quit failed: '+str(e)
+    else:
+        action='left your app running (adopted instance); un-watched and restored its window(s)'
+    return {'closed_pid':pid,'owns_launch':owns,'restored':restored,'watching':load_reg()['pids'],'note':action}
 def status():
     r=load_reg();print(json.dumps({'daemon_pid':daemon_alive(),'display_pid':display_alive(),'hidden_display':hidden_rect(),'watching_pids':r['pids'],'relocations':sum(1 for _ in open(RELOG)) if RELOG.exists() else 0},indent=1))
 def down():
@@ -186,7 +211,7 @@ def main():
         app=a[1];file=None
         if '--file' in a:file=a[a.index('--file')+1]
         launch(app,file)
-    elif c=='register':print(json.dumps({'watching':register(int(a[1]))}))
+    elif c=='register':print(json.dumps({'watching':register(int(a[1]),{'owns_launch':False,'mode':'adopted'})}))
     elif c=='park':print(json.dumps({'parked':park(int(a[1]))}))
     elif c=='close':print(json.dumps(close_desk(int(a[1]))))
     elif c=='mcp':
