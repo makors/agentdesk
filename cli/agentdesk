@@ -58,19 +58,41 @@ def daemon_alive():
     except Exception:return None
 def axact(*a):
     r=subprocess.run([str(AXACT),*map(str,a)],capture_output=True,text=True,timeout=30);return r.returncode,r.stdout.strip(),r.stderr.strip()
+def resolve_app(app):
+    import glob,os
+    # already a concrete .app path
+    if app.endswith('.app') and os.path.isdir(app):return app
+    for cand in [f'/Applications/{app}.app', f'/Applications/Utilities/{app}.app',
+                 os.path.expanduser(f'~/Applications/{app}.app')]:
+        if os.path.isdir(cand):return cand
+    # search: a folder or .app whose name contains the term (e.g. 'Adobe Illustrator 2026')
+    hits=[]
+    for pat in [f'/Applications/*{app}*/*.app', f'/Applications/*{app}*.app',
+                f'/Applications/**/{app}*.app']:
+        hits+=glob.glob(pat, recursive=True)
+    # prefer the shortest path (the main app, not a helper), de-duplicated
+    hits=sorted(set(h for h in hits if '/Contents/' not in h), key=len)
+    return hits[0] if hits else None
+def pidof(name):
+    import os.path
+    needle=os.path.basename(name).replace('.app','')
+    rc,o,e=axact('pidof',needle)
+    try:return [(int(x['pid']),x.get('active',False)) for x in json.loads(o)]
+    except Exception:return []
 def wins(pid):
     rc,o,e=axact('windows',pid)
     try:return json.loads(o)
     except Exception:return []
-def up():
-    disp=ensure_display();h=hidden_rect()
-    if not h:
-        print("Could not create a hidden display.",file=sys.stderr);sys.exit(1)
+def ensure_up():
+    ensure_display();h=hidden_rect()
+    if not h:raise RuntimeError("Could not create a hidden display.")
     r=load_reg();r['hidden']=h;save_reg(r)
-    if daemon_alive():print(json.dumps({'daemon':'already running','pid':daemon_alive(),'hidden':h}));return
+    if daemon_alive():return {'daemon':'already running','pid':daemon_alive(),'hidden':h}
     p=subprocess.Popen([str(DAEMON),str(ROOT)],stdout=open(ROOT/'daemon.log','a'),stderr=subprocess.STDOUT,start_new_session=True)
     PIDF.write_text(str(p.pid));time.sleep(0.5)
-    print(json.dumps({'daemon':'started','pid':p.pid,'hidden':h,'watching':r['pids']}))
+    return {'daemon':'started','pid':p.pid,'hidden':h,'watching':r['pids']}
+def up():
+    print(json.dumps(ensure_up()))
 def park(pid):
     h=load_reg()['hidden'];margin=90;moved=[]
     for w in wins(pid):
@@ -81,21 +103,60 @@ def register(pid):
     if pid not in r['pids']:r['pids'].append(pid)
     save_reg(r);return r['pids']
 def launch(app,file=None):
-    before=set(subprocess.run(['pgrep','-x',app],capture_output=True,text=True).stdout.split())
-    cmd=['open','-n','-gj','-a',app]+(['--args'] if False else [])
-    if file:cmd=['open','-n','-gj','-a',app,file]
-    subprocess.run(cmd);
-    pid=None
-    for _ in range(40):
-        now=[p for p in subprocess.run(['pgrep','-x',app],capture_output=True,text=True).stdout.split() if p not in before]
-        if now:pid=int(now[0]);
-        if pid and wins(pid):break
+    if not (daemon_alive() and hidden_rect()):ensure_up()
+    import os.path
+    before={pid for pid,_ in pidof(app)}
+    target=resolve_app(app) or app
+    r0=subprocess.run(['open','-n','-gj',target] if target.endswith('.app') else ['open','-n','-gj','-a',target],capture_output=True,text=True)
+    launch_err=r0.stderr.strip()
+    newpid=None
+    for _ in range(20):  # ~4s: wait for a NEW process (separate instance)
+        cand=[pid for pid,_ in pidof(app) if pid not in before]
+        if cand:newpid=cand[0];break
         time.sleep(0.2)
-    if not pid:print(json.dumps({'error':'no instance launched'}));sys.exit(1)
-    register(pid)
-    if not daemon_alive():up()
-    time.sleep(0.3);parked=park(pid);time.sleep(0.3)
-    print(json.dumps({'pid':pid,'app':app,'parked':parked,'windows':wins(pid),'note':'drive this pid/window with Codex or `agentdesk act`; dialogs auto-relocate'},indent=1))
+    if newpid is not None:
+        pid=newpid;mode='separate_process'
+    else:
+        # single-instance app (e.g. Adobe): adopt the running instance
+        allp=pidof(app)
+        if not allp:return print(json.dumps({'error':'app did not launch or was not found','app':app,'resolved':target,'open_error':launch_err}))or sys.exit(1)
+        pid=allp[0][0];mode='shared_instance'
+    register(pid)  # register BEFORE windows render so the mover catches the app's own window too
+    # hide_park_unhide: keep a freshly-launched app hidden while its window/AX initializes,
+    # park it onto the hidden display, then unhide it there — avoids a launch-time flash on the user's screen.
+    hidden_launch = (mode=='separate_process')
+    if hidden_launch:
+        for _ in range(6): axact('hide',pid); time.sleep(0.05)   # some apps un-hide themselves during init
+    parked=[]
+    for _ in range(40):  # up to ~8s: wait for a real window, then park it
+        w=wins(pid)
+        if w:
+            if hidden_launch: axact('hide',pid)  # ensure hidden right before the move
+            parked=park(pid)
+            if parked and all(x.get('ok') for x in parked): break
+        time.sleep(0.2)
+    if hidden_launch:
+        axact('unhide',pid)   # now visible only on the hidden display
+        time.sleep(0.2); park(pid)
+    if file:
+        subprocess.run((['open','-gj',target,file] if target.endswith('.app') else ['open','-gj','-a',target,file]));time.sleep(1.5);park(pid)
+    warn=None
+    if mode=='shared_instance':
+        warn=('This app refuses a second process, so the agent shares the one running instance. '
+              'Safe if you are not using this app yourself. If you are actively working in it, do not run the agent here.')
+    out={'pid':pid,'app':app,'mode':mode,'parked':parked,'windows':wins(pid),
+         'note':'drive this pid/window with your background computer use; do NOT bring it to the front. Dialogs auto-relocate.'}
+    if warn:out['warning']=warn
+    print(json.dumps(out,indent=1))
+def close_desk(pid):
+    import signal as _sig
+    r=load_reg()
+    if pid in r['pids']:r['pids'].remove(pid);save_reg(r)
+    quit_err=None
+    try:os.kill(pid,_sig.SIGTERM)
+    except ProcessLookupError:quit_err='already gone'
+    except Exception as e:quit_err=str(e)
+    return {'closed_pid':pid,'watching':load_reg()['pids'],'note':quit_err or 'sent SIGTERM'}
 def status():
     r=load_reg();print(json.dumps({'daemon_pid':daemon_alive(),'display_pid':display_alive(),'hidden_display':hidden_rect(),'watching_pids':r['pids'],'relocations':sum(1 for _ in open(RELOG)) if RELOG.exists() else 0},indent=1))
 def down():
@@ -120,6 +181,7 @@ def main():
         launch(app,file)
     elif c=='register':print(json.dumps({'watching':register(int(a[1]))}))
     elif c=='park':print(json.dumps({'parked':park(int(a[1]))}))
+    elif c=='close':print(json.dumps(close_desk(int(a[1]))))
     elif c=='act':print(axact(*a[1:])[1])
     else:print(__doc__)
 if __name__=='__main__':main()

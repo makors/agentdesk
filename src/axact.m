@@ -46,7 +46,11 @@ int main(int argc,const char **argv){@autoreleasepool{
  axWin=(WinFn)dlsym(RTLD_DEFAULT,"_AXUIElementGetWindow");if(!axWin)return fail(5,"no _AXUIElementGetWindow");
  if(!AXIsProcessTrusted())return fail(1,"Accessibility not granted to this process");
  if(argc<2)return fail(2,"usage");NSString *cmd=@(argv[1]);
- if([cmd isEqual:@"windows"]){pid_t filter=argc>2?atoi(argv[2]):0;NSArray *all=CFBridgingRelease(CGWindowListCopyWindowInfo(kCGWindowListOptionAll|kCGWindowListExcludeDesktopElements,kCGNullWindowID));NSMutableArray *out=[NSMutableArray new];
+if([cmd isEqual:@"pidof"]){NSString *needle=argc>2?[@(argv[2]) lowercaseString]:@"";NSMutableArray *out=[NSMutableArray new];
+   for(NSRunningApplication *a in NSWorkspace.sharedWorkspace.runningApplications){NSString *nm=a.localizedName?:@"",*bp=a.bundleURL.path?:@"",*bid=a.bundleIdentifier?:@"";
+    if(a.activationPolicy==NSApplicationActivationPolicyRegular && ([[nm lowercaseString] containsString:needle]||[[bp lowercaseString] containsString:needle]||[[bid lowercaseString] containsString:needle]))[out addObject:@{@"pid":@(a.processIdentifier),@"name":nm,@"bundle":bid,@"active":@(a.active)}];}
+   printf("%s\n",[[NSString alloc]initWithData:[NSJSONSerialization dataWithJSONObject:out options:0 error:nil] encoding:NSUTF8StringEncoding].UTF8String);return 0;}
+  if([cmd isEqual:@"windows"]){pid_t filter=argc>2?atoi(argv[2]):0;NSArray *all=CFBridgingRelease(CGWindowListCopyWindowInfo(kCGWindowListOptionAll|kCGWindowListExcludeDesktopElements,kCGNullWindowID));NSMutableArray *out=[NSMutableArray new];
   for(NSDictionary *w in all){if([w[(id)kCGWindowLayer] intValue]!=0)continue;pid_t pid=[w[(id)kCGWindowOwnerPID] intValue];if(filter&&pid!=filter)continue;CGRect b;CGRectMakeWithDictionaryRepresentation((__bridge CFDictionaryRef)w[(id)kCGWindowBounds],&b);if(b.size.width<50||b.size.height<40)continue;
    [out addObject:@{@"pid":@(pid),@"wid":w[(id)kCGWindowNumber],@"app":w[(id)kCGWindowOwnerName]?:@"",@"title":w[(id)kCGWindowName]?:@"",@"onscreen":w[(id)kCGWindowIsOnscreen]?:@NO,@"bounds":@[@(b.origin.x),@(b.origin.y),@(b.size.width),@(b.size.height)]}];}
   printf("%s\n",[[NSString alloc]initWithData:[NSJSONSerialization dataWithJSONObject:out options:NSJSONWritingPrettyPrinted error:nil] encoding:NSUTF8StringEncoding].UTF8String);return 0;}

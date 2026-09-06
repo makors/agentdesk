@@ -77,3 +77,19 @@ corner hidden display) while the user typed in another app. It produced a simple
   script path does not exercise the dialog mover. Dialog relocation (~1-2 ms) is proven separately on
   TextEdit and Preview (E7, E9, E10). Illustrator's canvas is not Accessibility-addressable, so
   freehand drawing needs the script engine, not background GUI clicks.
+
+## E12 — Real-world Codex run exposed and fixed the Illustrator failure
+From the Codex session log: `desk_open("Adobe Illustrator 2026")` returned `{"error":"no instance launched"}`, so Codex fell back to driving the plain foreground Illustrator with its own computer use. Its File>Open dialog appeared on the user's main screen. `desk_status` showed `watching_pids: []` throughout — the app was never on a desk, so the mover had nothing to relocate.
+
+Root causes and fixes:
+1. **App name not resolved.** `open -a "Adobe Illustrator 2026"` fails; the launchable app is `Adobe Illustrator.app` inside a folder of that name. Added an app-path resolver (name/display-name/path -> concrete `.app`).
+2. **Single-instance apps errored out.** Adobe apps refuse a second process, so `open -n` yields no new pid. desk_open now ADOPTS the running instance (mode `shared_instance`) and registers it, instead of failing. Fresh non-Adobe apps still get a real separate process (`separate_process`).
+3. **Pid registered too late.** Now the pid is registered with the mover BEFORE windows render, so the app's own window and any dialog are caught as they appear.
+4. **Launch-time flash.** A heavy app shows its window on the main display for a moment while its Accessibility tree initializes (measured 567 ms before). Added hide→park→unhide around launch: the app is hidden while it initializes, parked on the hidden display, then unhidden there. This cut the main-window flash from 567 ms to ~4 ms.
+5. **Double JSON output** from desk_open (the daemon-start line preceded the result) — split `up()` into a silent `ensure_up()` used internally and a printing CLI `up`.
+
+Verified (fresh Illustrator, user idle, oracle at 60 Hz):
+- desk_open -> mode `separate_process`, window parked on the hidden display; main-window flash ~4 ms.
+- File>Open... (the exact dialog from the user's screenshot, 866x475) relocated from [323,130] on the main screen to [1602,1072] on the hidden display in **6.9 ms**; front/focus/pointer changes all zero.
+
+Remaining limit: a faint single- to low-double-digit-ms flash can still occur on heavy-app launch and on the first dialog. Far below the old 567 ms, but not literally zero. `shared_instance` apps are only safe when the user is not working in that same app; desk_open returns a warning saying so.
