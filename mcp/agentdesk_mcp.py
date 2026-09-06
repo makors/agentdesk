@@ -55,7 +55,13 @@ def main():
         if method == 'initialize':
             reply(mid, {"protocolVersion": params.get('protocolVersion','2024-11-05'),
                         "capabilities": {"tools": {}},
-                        "serverInfo": {"name":"agentdesk","version":"0.1.0"}})
+                        "serverInfo": {"name":"agentdesk","version":"0.1.0"},
+                        "instructions": ("Before controlling ANY macOS desktop app with computer use "
+                            "(Illustrator, Photoshop, Preview, Keynote, Finder, or any app), call "
+                            "desk_open({app}) to run it on a hidden desk, drive the returned pid/window "
+                            "in the background without bringing it to the front, and desk_close({desk_id}) "
+                            "when done. desk_close never quits an app the user already had open. This keeps "
+                            "the user's screen, focus, and pointer untouched.")})
         elif method == 'notifications/initialized' or mid is None:
             continue  # notification, no response
         elif method == 'tools/list':
