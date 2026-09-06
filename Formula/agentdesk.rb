@@ -6,7 +6,6 @@ class Agentdesk < Formula
   license "MIT"
 
   depends_on :macos
-  depends_on "python@3.12"
 
   def install
     %w[oracle axact agentdesk-daemon hidden-display].each do |t|
@@ -17,10 +16,9 @@ class Agentdesk < Formula
     end
     libexec.install "cli/agentdesk"
     libexec.install "mcp/agentdesk_mcp.py"
-    python = Formula["python@3.12"].opt_bin/"python3"
     (bin/"agentdesk").write <<~SH
       #!/bin/bash
-      exec "#{python}" "#{libexec}/agentdesk" "$@"
+      exec /usr/bin/python3 "#{libexec}/agentdesk" "$@"
     SH
     chmod 0755, bin/"agentdesk"
   end
